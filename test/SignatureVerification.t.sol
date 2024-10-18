@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 import "../src/SignatureVerification.sol";
-import "../src/BuksToken.sol";;
+import "../src/BuksToken.sol";  // Your custom ERC20 token
 
 contract SignatureVerificationTest is Test {
     SignatureVerification public signatureContract;
-    ERC20 public token;
+    BuksToken public token;
     address public alice;
     address[] public whitelist;
 
     function setUp() public {
-        // Deploy ERC20 token and mint some tokens
-        token = new ERC20("Test Token", "TKN");
-        token._mint(address(this), 1000 * 10**18);
+        // Deploy TestToken and mint some tokens
+        token = new BuksToken();
+        token.mint(address(this), 1000 * 10**18);
 
         // Whitelist addresses
         alice = address(0x123);
@@ -31,11 +31,15 @@ contract SignatureVerificationTest is Test {
         // Create a valid signature for Alice
         uint256 amount = 100 * 10**18;
         bytes32 messageHash = keccak256(abi.encodePacked(amount, alice));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, messageHash); // Signing with alice's private key
+        bytes32 ethSignedMessageHash = signatureContract.getEthSignedMessageHash(messageHash);
+
+        // Generate the signature using Foundry's sign cheat code
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, ethSignedMessageHash);  // Signing with alice's private key
         
+        // Pack the signature into a single bytes array
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        vm.prank(alice); // Pretend to be Alice
+        vm.prank(alice);  // Simulate Alice's transaction
         signatureContract.claimTokens(amount, messageHash, signature);
 
         // Check if Alice received the tokens
@@ -48,11 +52,15 @@ contract SignatureVerificationTest is Test {
         address bob = address(0x456);
         uint256 amount = 100 * 10**18;
         bytes32 messageHash = keccak256(abi.encodePacked(amount, alice));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, messageHash); // Signing with Bob's private key
-        
+        bytes32 ethSignedMessageHash = signatureContract.getEthSignedMessageHash(messageHash);
+
+        // Sign with Bob's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, ethSignedMessageHash);  // Signing with Bob's private key
+
+        // Pack the signature into a single bytes array
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        vm.prank(alice); // Pretend to be Alice
-        signatureContract.claimTokens(amount, messageHash, signature);
+        vm.prank(alice);  // Simulate Alice's transaction
+        signatureContract.claimTokens(amount, messageHash, signature);  // This should fail
     }
 }
